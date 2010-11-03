@@ -1,0 +1,3 @@
+module StarEtl
+  # Your code goes here...
+end
