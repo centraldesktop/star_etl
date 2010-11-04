@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
   s.email       = ["jon@jondruse.com"]
   s.homepage    = "http://rubygems.org/gems/star_etl"
   s.summary     = %q{StarEtl helps defining facts and dimensions for a star schema data-warehouse}
-  s.description = %q{TODO: Write a gem description}
+  s.description = %q{description is on it's way'}
 
   s.rubyforge_project = "star_etl"
 
