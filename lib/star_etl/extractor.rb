@@ -12,12 +12,12 @@ module StarEtl
       def connection
         @semaphore.synchronize { @conn }
       end
+            
     end
     
     def initialize(db_config)
       self.class.connect!(db_config)
       @facts = []
-      @threads = []
     end
 
     def fact
@@ -29,31 +29,13 @@ module StarEtl
     def extract!
       started = Time.now
       
-      @facts.each {|f| spawn(f) }
-    
-      #wait while they work
-      until active_threads.empty?
-        sleep(5)
-      end
+      @facts.each {|f| f.run! }
       
       puts @facts.inspect
-      
-      
       puts "took #{Time.now - started} seconds"
     end
    
     private
-    
-    def spawn(fact)
-      t = Thread.new {fact.run!}
-
-      @threads << t
-    end
-    
-    def active_threads
-      @threads.map(&:alive?).delete_if {|t| !t }
-    end
-    
-    
+        
   end
 end

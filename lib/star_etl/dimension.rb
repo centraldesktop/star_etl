@@ -1,5 +1,6 @@
 module StarEtl
-  class Dimension
+  class Dimension < Base
+    
     attr_accessor :source_proc
     attr_reader :name, :source
     
@@ -31,30 +32,27 @@ module StarEtl
       end
     end
     
-    def insert!
-      @insert["pk_id"] = @insert.values.join
-      sql = %Q{INSERT INTO #{name} (#{@insert.keys.join(", ")}) VALUES (#{prepare_values(@insert.values)});}
+    def columns
+      @insert.keys.join(", ")
+    end
+    
+    def insert_values
+      %Q{(#{prepare_values(@insert.values)})} unless @skip
+    end
+    
+    def pk
       begin
-        Extractor.connection.execute(sql)    
-      rescue ActiveRecord::StatementInvalid
+        @skip = sql(%Q{SELECT * FROM #{name} WHERE pk_id = #{@insert["pk_id"]} }).size > 0
+        @insert["pk_id"]
+      rescue ActiveRecord::StatementInvalid => e
+        raise e unless e.to_s.include?('duplicate key')
       end
     end
     
     private
     
-    def prepare_values(values)
-      values.map do |v| 
-        case v
-        when String
-          "'#{v}'"
-        else
-          v
-        end
-      end.join(", ")
-    end
-    
     def get_columns(table)
-      cols = Extractor.connection.execute(%Q{select attname from pg_attribute where attrelid = (select oid from pg_class where relname = '#{table}') and attnum > 0})
+      cols = sql(%Q{select attname from pg_attribute where attrelid = (select oid from pg_class where relname = '#{table}') and attnum > 0})
       cols.map {|h| h["attname"] }
     end
     
