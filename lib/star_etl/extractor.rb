@@ -46,10 +46,16 @@ module StarEtl
       @facts.each {|f| f.run! }
       
       # puts @facts.inspect
-      puts "took #{Time.now - started} seconds"
+      puts "took #{format_duration(Time.now - started)} "
     end
    
     private
+    
+    def format_duration(seconds)
+      m, s = seconds.divmod(60)
+      "#{m}minutes and #{'%.3f' % s}seconds" 
+    end
+    
         
   end
 end

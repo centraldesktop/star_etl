@@ -21,21 +21,16 @@ module StarEtl
     def run!
       total = sql(%Q{SELECT count(*) from #{source}}).first["count"]
       puts "extracting from #{total} total records"
-      total_chunks = (total.to_i / 200) + 1
+      total_chunks = total.to_i / 200
       puts "will be done in #{total_chunks} chunks"
       completed = 0
 
       record = sql(%Q{SELECT * from #{source} limit 1}).first
-      insert = {}
       dimensions.each do |dim_block|
         d = Dimension.new(record)
         dim_block.call(d)
         batches[d.name] = BatchInsert.new(d.name, d.columns, self)
-        insert["fk_#{d.name}"] = d.pk
       end
-      insert[measure]
-      batches[source] = BatchInsert.new(source, insert.keys.join(", "), self)
-      
       Thread.abort_on_exception = true
       
       # puts batches.inspect
@@ -48,13 +43,12 @@ module StarEtl
               dimensions.each do |dim_block|
                 d = Dimension.new(record)
                 dim_block.call(d)
-                insert["fk_#{d.name}"] = d.pk
+                insert["fk_#{d.name}"] = d.pk_id
                 ivs = d.insert_values
                 batches[d.name] << ivs if ivs
               end  
               insert[measure] = record[measure]
-              # insert_record(dest, insert)
-              batches[source] << prepare_values(insert.values)
+              insert_record(dest, insert)
               # STDOUT.print(".") && STDOUT.flush
             end
           

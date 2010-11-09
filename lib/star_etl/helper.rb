@@ -11,7 +11,9 @@ module StarEtl
     
     def prepare_values(values)
       values.map do |v|         
-        if v.to_i.to_s == v
+        if v == true || v == false
+          v
+        elsif v.to_s.to_i.to_s == v
           v
         else
           "'#{v}'"

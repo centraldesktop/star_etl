@@ -1,8 +1,16 @@
 module StarEtl
   class Dimension < Base
     
+    class << self
+      
+      def columns
+        @columns ||= {}
+      end
+      
+    end
+    
     attr_accessor :source_proc
-    attr_reader :name, :source
+    attr_reader :name, :source, :dest_cols
     
     def initialize(record)
       @record = record
@@ -37,24 +45,20 @@ module StarEtl
     end
     
     def insert_values
-      %Q{(#{prepare_values(@insert.values)})} unless @skip
-    end
-    
-    def pk
       until !Thread.current[:wait] do
         # puts "#{Thread.current.inspect} - waiting"
-        sleep(0.1)
+        sleep(0.5)
       end
       
-      @skip = sql(%Q{SELECT * FROM #{name} WHERE pk_id = #{@insert["pk_id"]} }).size > 0
-      @insert["pk_id"]
+      skip = sql(%Q{SELECT * FROM #{name} WHERE pk_id = #{@insert["pk_id"]} }).size > 0
+      %Q{(#{prepare_values(@insert.values)})} unless skip
     end
     
-    private
-    
     def get_columns(table)
-      cols = sql(%Q{select attname from pg_attribute where attrelid = (select oid from pg_class where relname = '#{table}') and attnum > 0})
-      cols.map {|h| h["attname"] }
+      return self.class.columns[table] if self.class.columns[table]
+      cols    = sql(%Q{select attname from pg_attribute where attrelid = (select oid from pg_class where relname = '#{table}') and attnum > 0})
+      col_map = cols.map {|h| h["attname"] }
+      self.class.columns[table] = col_map
     end
     
   end
