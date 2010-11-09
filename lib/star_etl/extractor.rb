@@ -12,11 +12,25 @@ module StarEtl
       def connection
         @semaphore.synchronize { @conn }
       end
-            
+      
+      def options!(hsh)
+        defaults = {
+          :workers => 100,
+          :debug   => false
+        }
+
+        @options = defaults.merge(hsh)
+      end
+      
+      def options
+        @options
+      end
+      
     end
     
-    def initialize(db_config)
+    def initialize(db_config, options={})
       self.class.connect!(db_config)
+      self.class.options!(options)
       @facts = []
     end
 

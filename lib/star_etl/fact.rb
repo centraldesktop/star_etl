@@ -2,13 +2,14 @@ module StarEtl
   class Fact < Base
 
     attr_accessor :source, :measure, :dest, :dimensions
+    attr_reader :threads, :mutex
   
     def initialize
       @dimensions    = []
       @last_id       = 0
       @threads       = []
-      @thread_max    = 100
-      @semaphore     = Mutex.new
+      @thread_max    = Extractor.options[:workers]
+      @mutex         = Mutex.new
       @ready_to_stop = false
       @batches       = {}
     end
@@ -20,67 +21,70 @@ module StarEtl
     def run!
       total = sql(%Q{SELECT count(*) from #{source}}).first["count"]
       puts "extracting from #{total} total records"
-      puts "will be done in #{total.to_i / 500} chunks"
+      total_chunks = total.to_i / 200
+      puts "will be done in #{total_chunks} chunks"
+      completed = 0
 
       dimensions.each do |dim_block|
         record = sql(%Q{SELECT * from #{source} limit 1}).first
         d = Dimension.new(record)
         dim_block.call(d)
-        batches[d.name] = BatchInsert.new(d.name, d.columns)
+        batches[d.name] = BatchInsert.new(d.name, d.columns, self)
       end
+      Thread.abort_on_exception = true
       
       # puts batches.inspect
-
-      until @ready_to_stop || active_threads.size == @thread_max
+      until @ready_to_stop
+        until active_threads.size == @thread_max
         
-        @threads << Thread.new {
-          records = get_batch
+          @threads << Thread.new {
+            get_batch.each do |record|
+              insert = {}
+              dimensions.each do |dim_block|
+                d = Dimension.new(record)
+                dim_block.call(d)
+                insert["fk_#{d.name}"] = d.pk
+                ivs = d.insert_values
+                batches[d.name] << ivs if ivs
+              end  
+              insert[measure] = record[measure]
+              insert_record(dest, insert)
+              # STDOUT.print(".") && STDOUT.flush
+            end
           
-          records.each do |record|
-            insert = {}
-            dimensions.each do |dim_block|
-              d = Dimension.new(record)
-              dim_block.call(d)
-              insert["fk_#{d.name}"] = d.pk
-              batches[d.name] << d.insert_values
-            end  
-            insert[measure] = record[measure]
-            insert_record(dest, insert)
-            STDOUT.print(".") && STDOUT.flush
-          end
-          
-          batches.values.each {|b| b.dump!(true) }
-          
-        }
+            @mutex.synchronize {
+              completed += 1
+              puts "#{completed}/#{total_chunks} Completed"
+            }
+            
+          }
       
-      end      
-    
-
-      #wait while they work
-      until active_threads.empty?
-        sleep(1)
+        end      
       end
-          
+      #wait for all threads to finish
+      @threads.each {|t| t.join }
+      batches.values.each {|b| b.dump!(true) }
     end
     
     private
     
     def get_batch
-      @semaphore.synchronize {
-        records = sql(%Q{SELECT * from #{source} WHERE pk_id > #{@last_id} order by pk_id ASC limit 500})
-        @ready_to_stop = records.size < 500
+      @mutex.synchronize {
+        records = sql(%Q{SELECT * from #{source} WHERE pk_id > #{@last_id} order by pk_id ASC limit 200})
+        @ready_to_stop = records.size < 200
         @last_id = records.last["pk_id"].to_i
-        puts "last id is now #{@last_id}"
+        # puts "last id is now #{@last_id}"
         records
       }
     end
     
     def active_threads
-      @threads.map(&:alive?).delete_if {|t| !t }
+      # @threads.map(&:alive?).delete_if {|t| !t }
+      @threads = @threads.select {|t| t.alive? }
     end
     
     def batches
-      @semaphore.synchronize{
+      @mutex.synchronize{
         @batches        
       }
     end

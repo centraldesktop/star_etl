@@ -10,12 +10,12 @@ module StarEtl
     end
     
     def name=(name)
-      @name = name
+      @name      = name
       @dest_cols = get_columns(name)
     end
     
     def source=(col)
-      s = @record[col.to_s]      
+      s       = @record[col.to_s]      
       @source = source_proc.nil? ? s : source_proc.call(s)
     end
     
@@ -41,12 +41,13 @@ module StarEtl
     end
     
     def pk
-      begin
-        @skip = sql(%Q{SELECT * FROM #{name} WHERE pk_id = #{@insert["pk_id"]} }).size > 0
-        @insert["pk_id"]
-      rescue ActiveRecord::StatementInvalid => e
-        raise e unless e.to_s.include?('duplicate key')
+      until !Thread.current[:wait] do
+        # puts "#{Thread.current.inspect} - waiting"
+        sleep(0.1)
       end
+      
+      @skip = sql(%Q{SELECT * FROM #{name} WHERE pk_id = #{@insert["pk_id"]} }).size > 0
+      @insert["pk_id"]
     end
     
     private
