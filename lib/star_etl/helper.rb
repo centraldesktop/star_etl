@@ -10,12 +10,11 @@ module StarEtl
     end
     
     def prepare_values(values)
-      values.map do |v| 
-        case v
-        when String
-          "'#{v}'"
-        else
+      values.map do |v|         
+        if v.to_i.to_s == v
           v
+        else
+          "'#{v}'"
         end
       end.join(", ")
     end

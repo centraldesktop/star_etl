@@ -21,16 +21,21 @@ module StarEtl
     def run!
       total = sql(%Q{SELECT count(*) from #{source}}).first["count"]
       puts "extracting from #{total} total records"
-      total_chunks = total.to_i / 200
+      total_chunks = (total.to_i / 200) + 1
       puts "will be done in #{total_chunks} chunks"
       completed = 0
 
+      record = sql(%Q{SELECT * from #{source} limit 1}).first
+      insert = {}
       dimensions.each do |dim_block|
-        record = sql(%Q{SELECT * from #{source} limit 1}).first
         d = Dimension.new(record)
         dim_block.call(d)
         batches[d.name] = BatchInsert.new(d.name, d.columns, self)
+        insert["fk_#{d.name}"] = d.pk
       end
+      insert[measure]
+      batches[source] = BatchInsert.new(source, insert.keys.join(", "), self)
+      
       Thread.abort_on_exception = true
       
       # puts batches.inspect
@@ -48,7 +53,8 @@ module StarEtl
                 batches[d.name] << ivs if ivs
               end  
               insert[measure] = record[measure]
-              insert_record(dest, insert)
+              # insert_record(dest, insert)
+              batches[source] << prepare_values(insert.values)
               # STDOUT.print(".") && STDOUT.flush
             end
           
@@ -72,7 +78,7 @@ module StarEtl
       @mutex.synchronize {
         records = sql(%Q{SELECT * from #{source} WHERE pk_id > #{@last_id} order by pk_id ASC limit 200})
         @ready_to_stop = records.size < 200
-        @last_id = records.last["pk_id"].to_i
+        @last_id = records.last["pk_id"].to_i unless records.empty?
         # puts "last id is now #{@last_id}"
         records
       }

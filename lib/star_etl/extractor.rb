@@ -45,7 +45,7 @@ module StarEtl
       
       @facts.each {|f| f.run! }
       
-      puts @facts.inspect
+      # puts @facts.inspect
       puts "took #{Time.now - started} seconds"
     end
    
