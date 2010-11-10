@@ -54,7 +54,7 @@ module StarEtl
           
             @mutex.synchronize {
               completed += 1
-              puts "#{completed}/#{total_chunks} Completed"
+              puts "#{completed}/#{total_chunks} Completed" if completed.remainder(10) == 0
             }
             
           }

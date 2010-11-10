@@ -46,7 +46,6 @@ module StarEtl
     
     def insert_values
       until !Thread.current[:wait] do
-        # puts "#{Thread.current.inspect} - waiting"
         sleep(0.5)
       end
       

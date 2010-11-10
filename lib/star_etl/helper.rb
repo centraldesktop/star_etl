@@ -1,8 +1,16 @@
 module StarEtl
   module Helper
     
+    LOG = Logger.new("/Users/sntjon/Desktop/sql.log")
+    MUTEX = Mutex.new
+    
     def sql(q)
-      Extractor.connection.execute(q)
+      MUTEX.synchronize {
+        LOG.debug q.inspect
+        r = Extractor.connection.execute(q)
+        LOG.debug r.inspect
+        r
+      }
     end
     
     def insert_record(table, record)
@@ -13,7 +21,7 @@ module StarEtl
       values.map do |v|         
         if v == true || v == false
           v
-        elsif v.to_s.to_i.to_s == v
+        elsif v.to_s.to_i == v
           v
         else
           "'#{v}'"
