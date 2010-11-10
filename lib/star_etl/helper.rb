@@ -1,16 +1,16 @@
 module StarEtl
   module Helper
     
-    LOG = Logger.new("/Users/sntjon/Desktop/sql.log")
-    MUTEX = Mutex.new
+    # LOG = Logger.new("/Users/sntjon/Desktop/sql.log")
+    # MUTEX = Mutex.new
     
     def sql(q)
-      MUTEX.synchronize {
-        LOG.debug q.inspect
-        r = Extractor.connection.execute(q)
-        LOG.debug r.inspect
-        r
-      }
+      # MUTEX.synchronize {
+      #   LOG.debug q.inspect
+        Extractor.connection.execute(q)
+        # LOG.debug r.inspect
+        # r
+      # }
     end
     
     def insert_record(table, record)
