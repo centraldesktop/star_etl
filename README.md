@@ -1,16 +1,16 @@
 Star Etl
 ========
 
-*THIS PROJECT IS BY NO MEANS DONE OR SAFE TO USE!!!*
+**THIS PROJECT IS BY NO MEANS DONE OR SAFE TO USE!!!**
 
 An attempt to (more) easily create star schemas for data warehousing. It's still packed full of assumptions.
 
 
-Installation
+<!-- Installation
 ------------
 
     $ gem install star_etl
-
+ -->
 
 Note on Patches/Pull Requests
 -----------------------------
