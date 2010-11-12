@@ -15,8 +15,10 @@ module StarEtl
       
       def options!(hsh)
         defaults = {
-          :workers => 100,
-          :debug   => false
+          :workers    => 100,
+          :batch_size => 200,
+          :debug      => false,
+          :start_id   => 0
         }
 
         @options = defaults.merge(hsh)
@@ -34,19 +36,16 @@ module StarEtl
       @facts = []
     end
 
-    def fact
-      f = Fact.new
+    def fact_source
+      f = FactSource.new
       yield f
       @facts << f
     end
     
     def extract!
       started = Time.now
-      
       @facts.each {|f| f.run! }
-      
-      # puts @facts.inspect
-      puts "took #{format_duration(Time.now - started)} "
+      puts "Finish in #{format_duration(Time.now - started)} "
     end
    
     private

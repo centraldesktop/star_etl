@@ -27,6 +27,21 @@ module StarEtl
       @source = source_proc.nil? ? s : source_proc.call(s)
     end
     
+    def pk_id=(val)
+      @insert["pk_id"] = val unless val.is_a?(Symbol)
+      @pk_id = val
+    end
+    
+    def pk_id
+      ret = if @pk_id.is_a?(Symbol)
+        @insert[@pk_id.to_s]
+      else
+        @pk_id
+      end
+      
+      ret.zero? ? 'NULL' : ret
+    end
+    
     def method_missing(name, *args)
       col_name = name.to_s.gsub(/\=$/,'')
       if @dest_cols.include?(col_name)
@@ -44,13 +59,10 @@ module StarEtl
       @insert.keys.join(", ")
     end
     
-    def insert_values
-      until !Thread.current[:wait] do
-        sleep(0.5)
-      end
-      
-      skip = sql(%Q{SELECT * FROM #{name} WHERE pk_id = #{@insert["pk_id"]} }).size > 0
-      %Q{(#{prepare_values(@insert.values)})} unless skip
+    def insert_record
+      @insert
+      # result = sql(%Q{SELECT pk_id FROM #{name} WHERE pk_id = #{@insert["pk_id"]} })
+      # %Q{(#{prepare_values(@insert.values)})} if result.empty?
     end
     
     def get_columns(table)

@@ -2,50 +2,42 @@ module StarEtl
   class BatchInsert < Base
     
     attr_accessor :table, :cols, :queue
+    attr_reader   :threads
     
-    def initialize(table, cols, fact, size=200)
-      @table = table
-      @cols  = cols
-      @queue = []
-      @fact  = fact
-      @mutex = @fact.mutex
-      @size  = size
+    def initialize(table, cols, size=500)
+      @table   = table
+      @cols    = cols
+      @queue   = []
+      @size    = size
+      @threads = []
     end
     
     def dump!(force=false)
-      if force || @queue.uniq.size >= @size
-      
-        @fact.threads.each {|t| t[:wait] = true if t.alive? }
-        
-        qq = @queue.compact.uniq
+      if force || @queue.size >= @size
+
+        @insert_q = @queue
         @queue = []
-        puts "dumping batch into #{@table} with #{qq.size} rows"
-        begin
-          r = sql(%Q{INSERT INTO #{@table} (#{@cols}) VALUES #{qq.join(',')} })
-        rescue
-          #raise e unless e.include?("duplicate key value")
-          qq.each do |val|
+        
+        @threads << Thread.new {
+          inserted = 0
+          @insert_q.uniq.each do |record|
             begin
-              r = sql(%Q{INSERT INTO #{@table} (#{@cols}) VALUES #{val} })
-            rescue => e
-              puts e
-              puts "did't insert #{val} into #{@table}, it was rejected"
+              insert_record(@table, record)
+              inserted += 1
+            rescue
             end
           end
-          
-        end
+          debug "Inserted #{inserted} rows into #{@table}"
+        }
         
-        @fact.threads.each {|t| t[:wait] = false if t.alive? }
       end
     end
     
-    def <<(value)
+    def <<(value)      
       if value
-        @mutex.synchronize {
-          @queue << value
-          dump!
-        }
+        @queue << value
       end
+      dump!
     end
     
   end  

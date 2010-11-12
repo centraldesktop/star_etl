@@ -1,32 +1,38 @@
 module StarEtl
   module Helper
     
-    # LOG = Logger.new("/Users/sntjon/Desktop/sql.log")
-    # MUTEX = Mutex.new
+    MUTEX = Mutex.new
+    ERR_LOG = Logger.new("/Users/sntjon/Desktop/logs/error.log")
     
     def sql(q)
-      # MUTEX.synchronize {
-      #   LOG.debug q.inspect
-        Extractor.connection.execute(q)
-        # LOG.debug r.inspect
-        # r
-      # }
+      Extractor.connection.execute(q)
     end
     
     def insert_record(table, record)
-      sql(%Q{INSERT INTO #{table} (#{record.keys.join(", ")}) VALUES (#{prepare_values(record.values)});})
+      record.delete_if { |key, val| val.nil? || val == "" }
+      # this guarantees that the cols and values are in the same order
+      a          = record.to_a
+      cols, vals = a.map(&:shift), a.map(&:shift)      
+      sql(%Q{INSERT INTO #{table} (#{cols.join(", ")}) VALUES (#{prepare_values(vals)});})
+    end
+    
+    def debug(msg)
+      puts msg if StarEtl::Extractor.options[:debug]
     end
     
     def prepare_values(values)
-      values.map do |v|         
-        if v == true || v == false
-          v
-        elsif v.to_s.to_i == v
-          v
-        else
+      values.map do |v| 
+        case v
+        when String
           "'#{v}'"
+        else
+          v
         end
       end.join(", ")
+    end
+    
+    def round_down_to_minute(stamp)
+      (stamp.to_f / 60).floor * 60
     end
     
   end
