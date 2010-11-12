@@ -39,7 +39,7 @@ module StarEtl
         @pk_id
       end
       
-      ret.zero? ? 'NULL' : ret
+      ret == 0 ? nil : ret
     end
     
     def method_missing(name, *args)
