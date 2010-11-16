@@ -55,7 +55,7 @@ module StarEtl
               measures.each_pair do |col, dest|
                 i = {col => record[col]}.merge(insert)                
                 begin
-                  insert_record(dest, i) unless i[col].nil? || (@ignore_zero && [col] == 0)
+                  insert_record(dest, i) unless i[col].nil? || (@ignore_zero && i[col] == 0)
                 rescue ActiveRecord::StatementInvalid => e
                   puts e
                   puts record.inspect
