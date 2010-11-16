@@ -61,8 +61,6 @@ module StarEtl
     
     def insert_record
       @insert
-      # result = sql(%Q{SELECT pk_id FROM #{name} WHERE pk_id = #{@insert["pk_id"]} })
-      # %Q{(#{prepare_values(@insert.values)})} if result.empty?
     end
     
     def get_columns(table)

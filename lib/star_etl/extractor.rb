@@ -3,22 +3,21 @@ module StarEtl
     
     class << self
       def connect!(db_config)
-        @semaphore = Mutex.new
+        @mutex = Mutex.new
         
         ActiveRecord::Base.establish_connection(db_config)
         @conn = ActiveRecord::Base.connection
       end
     
       def connection
-        @semaphore.synchronize { @conn }
+        @mutex.synchronize { @conn }
       end
       
       def options!(hsh)
         defaults = {
           :workers    => 100,
           :batch_size => 200,
-          :debug      => false,
-          :start_id   => 0
+          :debug      => false
         }
 
         @options = defaults.merge(hsh)
@@ -52,7 +51,7 @@ module StarEtl
     
     def format_duration(seconds)
       m, s = seconds.divmod(60)
-      "#{m}minutes and #{'%.3f' % s}seconds" 
+      "#{m} minutes and #{'%.3f' % s} seconds" 
     end
     
         

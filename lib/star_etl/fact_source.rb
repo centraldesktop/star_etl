@@ -6,8 +6,8 @@ module StarEtl
   
     def initialize
       @dimensions     = []
+      @measures       = []
       @time_dimension = false
-      @last_id        = Extractor.options[:start_id]
       @threads        = []
       @thread_max     = Extractor.options[:workers]
       @batch_size     = Extractor.options[:batch_size]
@@ -22,58 +22,24 @@ module StarEtl
     end
     
     def run!
-      total = sql(%Q{SELECT count(*) from #{source}}).first["count"]
-      puts "extracting from #{total} total records"
-      total_chunks = total.to_i / @batch_size
-      puts "will be done in #{total_chunks} chunks"
-      completed = 0
-
-      record = sql(%Q{SELECT * from #{source} limit 1}).first
-      dimensions.each do |dim_block|
-        d = Dimension.new(record)
-        dim_block.call(d)
-        batches[d.name] = BatchInsert.new(d.name, d.columns)
-      end
+      get_id_range
+      total = sql(%Q{SELECT count(*) from #{source} WHERE #{@id_range.call}}).first["count"]
+      puts "extracting from #{total} total records from #{source}"
+      @total_chunks = total.to_i / @batch_size
+      puts "will be done in #{@total_chunks} chunks"
+      @completed = 0
+      
+      init_batches
+      
       Thread.abort_on_exception = true
       
       # puts batches.inspect
       until @ready_to_stop
-        until active_threads.size == @thread_max
-        
-          @threads << Thread.new {
-            get_batch.each do |record|
-              insert = {}
-              dimensions.each do |dim_block|
-                d = Dimension.new(record)
-                dim_block.call(d)
-                insert["fk_#{d.name}"] = d.pk_id
-                batches[d.name] << d.insert_record
-              end  
-              insert["fk_time_dimension"] = round_down_to_minute(record[@time_dimension].to_i) if @time_dimension
-              
-              
-              measures.each_pair do |col, dest|
-                i = {col => record[col]}.merge(insert)                
-                begin
-                  insert_record(dest, i) unless i[col].nil? || (@ignore_zero && i[col] == 0)
-                rescue ActiveRecord::StatementInvalid => e
-                  puts e
-                  puts record.inspect
-                end
-              end
-
-              # STDOUT.print(".") && STDOUT.flush
-            end
-          
-            @mutex.synchronize {
-              completed += 1
-              puts "#{completed}/#{total_chunks} Completed" if completed.remainder(10) == 0
-            }
-            
-          }
-      
-        end      
+        until @ready_to_stop || active_threads.size == @thread_max
+          @threads << spawn_thread
+        end
       end
+
       #wait for all threads to finish
       @threads.map(&:join)
       batches.values.each {|b| b.dump!(true) }
@@ -82,11 +48,65 @@ module StarEtl
       batches.values.each {|b| b.threads.map(&:join) }
     end
     
+    def spawn_thread
+      Thread.new {
+        get_batch.each do |record|
+          insert = {}
+          dimensions.each do |dim_block|
+            d = Dimension.new(record)
+            dim_block.call(d)
+            insert["fk_#{d.name}"] = d.pk_id
+            batches[d.name] << d.insert_record
+          end  
+          insert["fk_time_dimension"] = round_down_to_minute(record[@time_dimension].to_i) if @time_dimension
+          
+          
+          measures.dclone.each do |m|
+            
+            dest = m.delete(:dest)
+            
+            i = {}
+            m.each_pair do |d_col, s_col|
+              i[d_col.to_s] = record[s_col]
+            end
+            
+            begin
+              unless i.values.map(&:nil?).uniq == [true] || (@ignore_zero && i.values.map {|v| v == 0 }.uniq == [true])
+                insert_record(dest, i.merge(insert))
+              end
+            rescue ActiveRecord::StatementInvalid => e
+              puts e
+              puts record.inspect
+            end
+          end
+
+          # STDOUT.print(".") && STDOUT.flush
+        end
+      
+        @mutex.synchronize {
+          @completed += 1
+          puts "#{@completed}/#{@total_chunks} Completed" if @completed.remainder(10) == 0
+        }
+        
+      }
+    end
+    
     private
+    
+    def init_batches
+      record = sql(%Q{SELECT * from #{source} limit 1}).first
+      dimensions.each do |dim_block|
+        d = Dimension.new(record)
+        dim_block.call(d)
+        batches[d.name] = BatchInsert.new(d.name)
+      end
+    end
     
     def get_batch
       @mutex.synchronize {
-        records = sql(%Q{SELECT * from #{source} WHERE pk_id > #{@last_id} order by pk_id ASC limit #{@batch_size}})
+        ss = %Q{SELECT * from #{source} WHERE #{@id_range.call} order by pk_id ASC limit #{@batch_size}}
+        debug ss
+        records = sql(ss)
         @ready_to_stop = records.size < @batch_size
         @last_id = records.last["pk_id"].to_i unless records.empty?
         # puts "last id is now #{@last_id}"
@@ -102,6 +122,26 @@ module StarEtl
       @mutex.synchronize{
         @batches        
       }
+    end
+    
+    def get_id_range
+      get_last_id
+      @id_range = lambda {"(pk_id > #{@last_id} AND pk_id < #{@_to_id_})"}
+    end
+    
+    def get_last_id
+      info = sql(%Q{SELECT * from etl_info WHERE table_name = '#{source}' })
+      @last_id = if info.empty?
+        sql(%Q{INSERT INTO etl_info (last_id, table_name) VALUES (0, '#{source}') })
+        0
+      else
+        info.first["last_id"]
+      end
+      @_to_id_ = sql(%Q{SELECT pk_id FROM #{source} ORDER BY pk_id desc LIMIT 1}).first["pk_id"]
+      
+      if @last_id && @_to_id_
+        sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{source}'})
+      end
     end
     
   end

@@ -4,9 +4,8 @@ module StarEtl
     attr_accessor :table, :cols, :queue
     attr_reader   :threads
     
-    def initialize(table, cols, size=500)
+    def initialize(table, size=500)
       @table   = table
-      @cols    = cols
       @queue   = []
       @size    = size
       @threads = []
