@@ -14,7 +14,7 @@ module StarEtl
       @mutex          = Mutex.new
       @ready_to_stop  = false
       @batches        = {}
-      @ignore_zero    = false
+      @nullify_zero   = true
     end
   
     def dimension(&block)
@@ -67,11 +67,12 @@ module StarEtl
             
             i = {}
             m.each_pair do |d_col, s_col|
-              i[d_col.to_s] = record[s_col]
+              value = record[s_col]
+              i[d_col.to_s] = value unless (@nullify_zero && value == 0)
             end
             
             begin
-              unless i.values.map(&:nil?).uniq == [true] || (@ignore_zero && i.values.map {|v| v == 0 }.uniq == [true])
+              unless i.values.empty? || i.values.map(&:nil?).uniq == [true]
                 insert_record(dest, i.merge(insert))
               end
             rescue ActiveRecord::StatementInvalid => e
