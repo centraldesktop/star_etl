@@ -110,7 +110,7 @@ module StarEtl
         debug ss
         records = sql(ss)
         @ready_to_stop = records.size < @batch_size
-        @last_id = records.last["pk_id"].to_i unless records.empty?
+        @last_id = records.last["datestamp"].to_i unless records.empty?
         debug "last id is now #{@last_id}"
         records
       }
