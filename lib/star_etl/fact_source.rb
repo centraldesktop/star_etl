@@ -23,6 +23,7 @@ module StarEtl
     
     def run!
       get_id_range
+      puts %Q{SELECT count(*) from #{source} WHERE #{@id_range.call}}
       total = sql(%Q{SELECT count(*) from #{source} WHERE #{@id_range.call}}).first["count"]
       puts "extracting from #{total} total records from #{source}"
       @total_chunks = total.to_i / @batch_size
@@ -68,7 +69,7 @@ module StarEtl
             i = {}
             m.each_pair do |d_col, s_col|
               value = record[s_col]
-              i[d_col.to_s] = value unless (@nullify_zero && value == 0)
+              i[d_col.to_s] = value unless (@nullify_zero && value == 0 || value == '0')
             end
             
             begin
@@ -76,8 +77,8 @@ module StarEtl
                 insert_record(dest, i.merge(insert))
               end
             rescue ActiveRecord::StatementInvalid => e
-              puts e
-              puts record.inspect
+              debug e
+              debug record.inspect
             end
           end
 
@@ -105,12 +106,12 @@ module StarEtl
     
     def get_batch
       @mutex.synchronize {
-        ss = %Q{SELECT * from #{source} WHERE #{@id_range.call} order by pk_id ASC limit #{@batch_size}}
+        ss = %Q{SELECT * from #{source} WHERE #{@id_range.call} order by datestamp ASC limit #{@batch_size}}
         debug ss
         records = sql(ss)
         @ready_to_stop = records.size < @batch_size
         @last_id = records.last["pk_id"].to_i unless records.empty?
-        # puts "last id is now #{@last_id}"
+        debug "last id is now #{@last_id}"
         records
       }
     end
@@ -127,7 +128,7 @@ module StarEtl
     
     def get_id_range
       get_last_id
-      @id_range = lambda {"(pk_id > #{@last_id} AND pk_id < #{@_to_id_})"}
+      @id_range = lambda {"(datestamp > #{@last_id} AND datestamp < #{@_to_id_})"}
     end
     
     def get_last_id
@@ -138,7 +139,7 @@ module StarEtl
       else
         info.first["last_id"]
       end
-      @_to_id_ = sql(%Q{SELECT pk_id FROM #{source} ORDER BY pk_id desc LIMIT 1}).first["pk_id"]
+      @_to_id_ = sql(%Q{SELECT datestamp FROM #{source} ORDER BY datestamp desc LIMIT 1}).first["datestamp"]
       
       if @last_id && @_to_id_
         sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{source}'})
