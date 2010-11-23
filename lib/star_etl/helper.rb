@@ -69,7 +69,7 @@ module StarEtl
     # 11/12/10:: added documentation Jon Druse (mailto:jdruse@centraldesktop.com)
     ### 
     def debug(msg)
-      puts msg if StarEtl::Extractor.options[:debug]
+      puts msg if StarEtl.options[:debug]
     end
     
     ## 

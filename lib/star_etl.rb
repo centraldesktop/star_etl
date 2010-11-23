@@ -1,12 +1,13 @@
 require 'star_etl/helper'
 require 'star_etl/base'
+require 'star_etl/fact'
 # require 'star_etl/extractor'
-require 'star_etl/fact_source'
-require 'star_etl/dimension'
-require 'star_etl/batch_insert'
+# require 'star_etl/fact_source'
+require 'star_etl/dimension_factory'
+# require 'star_etl/batch_insert'
 
 
-class StarEtl
+module StarEtl
   
   class << self
     def connect!(db_config)
@@ -22,8 +23,8 @@ class StarEtl
     
     def options!(hsh)
       defaults = {
-        :batch_size => 100000,
-        :debug      => false
+        :primary_key => "id",
+        :debug       => false
       }
 
       @options = defaults.merge(hsh)
@@ -33,31 +34,39 @@ class StarEtl
       @options
     end
     
+    def setup(db_config, opts={})
+      connect!(db_config)
+      options!(opts)
+      @facts  = []
+    end
+    
+    def fact
+      f = Fact.new
+      yield f
+      @facts << f
+    end
+    
+    def dimension_factory
+      d = DimensionFactory.new
+      yield d
+      
+      d.run!
+    end
+
+    def start!
+      started = Time.now
+      @facts.each {|f| f.run! }
+      puts "Finish in #{format_duration(Time.now - started)} "
+    end
+
+    private
+
+    def format_duration(seconds)
+      m, s = seconds.divmod(60)
+      "#{m} minutes and #{'%.3f' % s} seconds" 
+    end
+    
   end
   
-  def initialize(db_config, options={})
-    self.class.connect!(db_config)
-    self.class.options!(options)
-    @facts = []
-  end
-  
-  def fact
-    f = Fact.new
-    yield f
-    @facts << f
-  end
-  
-  def extract!
-    started = Time.now
-    @facts.each {|f| f.run! }
-    puts "Finish in #{format_duration(Time.now - started)} "
-  end
- 
-  private
-  
-  def format_duration(seconds)
-    m, s = seconds.divmod(60)
-    "#{m} minutes and #{'%.3f' % s} seconds" 
-  end
   
 end

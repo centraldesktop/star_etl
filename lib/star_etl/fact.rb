@@ -1,14 +1,14 @@
 module StarEtl
   class Fact < Base
     
-    attr_accessor :source, :destination, :time_dimension, :time_window, :column_map, :conditions, :batch_size, :batch_key
+    attr_accessor :source, :destination, :time_dimension, :time_window, :column_map, :conditions, :group_by, :aggregate
     
     def initialize
-      @batch_size    = StarEtl.options[:batch_size]
-      @batch_key     = "pk_id"
+      @primary_key   = StarEtl.options[:primary_key]
       @conditions    = []
       @column_map    = {}
       @ready_to_stop = false
+      @aggregate     = false
     end
     
     def time_window=(seconds)
@@ -16,55 +16,41 @@ module StarEtl
       @column_map.merge! :fk_time_dimension => "(#{@time_dimension} / #{seconds}) * #{seconds}"
     end
     
+    def column_map=(hash)
+      @column_map.merge! hash
+    end
+    
     def run!
       print_summary
-      
       @cols, @vals = *@column_map.stringify_keys.to_a.transpose
       
+      insert_sql = %Q{
+        INSERT INTO #{@destination} (#{@cols.join(',')})
+        SELECT #{@vals.join(',')}
+        FROM #{@source}
+        WHERE (#{@conditions.join(") AND (")})
+      }
       
-      until @ready_to_stop
-        
-        @conditions << get_batch_condition
-        
-        insert_sql = %Q{
-          INSERT INTO #{@destination} #{@cols.join(',')}
-          SELECT #{@vals.join(',')}
-          FROM #{@destination}
-          WHERE (#{@conditions.join(") AND (")})
-        }
-        
-        debug insert_sql
-
-      end
-      
+      debug insert_sql
+      sql(insert_sql)
     end
     
     private
     
     def print_summary
       get_id_range
-      puts %Q{SELECT count(*) from #{source} WHERE #{@id_range.call}}
-      total = sql(%Q{SELECT count(*) from #{source} WHERE #{@id_range.call}}).first["count"]
-      @total_chunks = (total.to_i / @batch_size) + 1
-      puts "Extracting from #{total} total records from #{source} in #{@total_chunks} chunks"
-      @completed = 0
-    end
-    
-    def get_batch_condition
-      ss             = %Q{SELECT #{@batch_key} from #{source} WHERE #{@id_range.call} order by #{@batch_key} ASC limit #{@batch_size}}
-      debug ss
-      records        = sql(ss)
-      @ready_to_stop = records.size < @batch_size
-      @last_id       = records.last[@batch_key].to_i unless records.empty?
-      
-      debug "last id is now #{@last_id}"
-      
-      "#{@batch_key} >= #{records.first[@batch_key]} AND #{@batch_key} =< #{@last_id}"
+      if @nothing_new
+        puts "No new records in #{source}"
+      else
+        total = sql(%Q{SELECT count(*) as "total" from #{source} WHERE #{@id_range.call}}).first["total"]
+        puts "Extracting from #{total} total records from #{source}"
+      end
     end
     
     def get_id_range
       get_last_id
-      @id_range = lambda {"(#{@batch_key} > #{@last_id} AND #{@batch_key} < #{@_to_id_})"}
+      @nothing_new = true if @last_id.to_i == @_to_id_.to_i
+      @id_range = lambda {"#{@primary_key} BETWEEN #{@last_id} AND #{@_to_id_}"}
     end
     
     def get_last_id
@@ -75,13 +61,12 @@ module StarEtl
       else
         info.first["last_id"]
       end
-      @_to_id_ = sql(%Q{SELECT #{@batch_key} FROM #{source} ORDER BY #{@batch_key} desc LIMIT 1}).first[@batch_key]
+      @_to_id_ = sql(%Q{SELECT max(#{@primary_key}) as "max" FROM #{source}}).first["max"]
       
       if @last_id && @_to_id_
         sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{source}'})
       end
     end
-    
     
   end
 end
