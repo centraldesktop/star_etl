@@ -30,7 +30,7 @@ module StarEtl
     # 11/12/10:: added documentation Jon Druse (mailto:jdruse@centraldesktop.com)
     ### 
     def sql(q)
-      Extractor.connection.execute(q)
+      StarEtl.connection.execute(q)
     end
     
     ## 
@@ -118,6 +118,11 @@ module StarEtl
     def round_down_to_minute(stamp)
       (stamp.to_f / 60).floor * 60
     end
+
+    def round_down_to_hour(stamp)
+      (stamp.to_f / 3600).floor * 3600
+    end
+
     
   end
 end

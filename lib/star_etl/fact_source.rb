@@ -126,25 +126,6 @@ module StarEtl
       }
     end
     
-    def get_id_range
-      get_last_id
-      @id_range = lambda {"(datestamp > #{@last_id} AND datestamp < #{@_to_id_})"}
-    end
-    
-    def get_last_id
-      info = sql(%Q{SELECT * from etl_info WHERE table_name = '#{source}' })
-      @last_id = if info.empty?
-        sql(%Q{INSERT INTO etl_info (last_id, table_name) VALUES (0, '#{source}') })
-        0
-      else
-        info.first["last_id"]
-      end
-      @_to_id_ = sql(%Q{SELECT datestamp FROM #{source} ORDER BY datestamp desc LIMIT 1}).first["datestamp"]
-      
-      if @last_id && @_to_id_
-        sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{source}'})
-      end
-    end
     
   end
 end
