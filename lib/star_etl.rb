@@ -59,6 +59,7 @@ module StarEtl
     def start!
       started = Time.now
       @facts.each {|f| f.run! }
+      @dimensions.each {|d| d.run! }
       puts "Finish in #{format_duration(Time.now - started)} "
     end
 

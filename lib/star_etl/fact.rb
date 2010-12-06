@@ -24,11 +24,11 @@ module StarEtl
     
     def run!
       print_summary
-      @cols, @vals = *@column_map.stringify_keys.to_a.transpose
+      return if @nothing_new
       
+      @cols, @vals = *@column_map.stringify_keys.to_a.transpose
       group = @group_by.clone
       group.unshift(@column_map[:fk_time_dimension]) if @aggregate
-      
       
       insert_sql = %Q{
         INSERT INTO #{@destination} (#{@cols.join(',')})
