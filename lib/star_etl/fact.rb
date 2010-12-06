@@ -1,19 +1,22 @@
 module StarEtl
   class Fact < Base
     
-    attr_accessor :source, :destination, :time_dimension, :time_window, :column_map, :conditions, :group_by, :aggregate
+    attr_accessor :source, :destination, :time_dimension, :time_window, :column_map, :conditions, :group_by, :aggregate, :primary_key
     
-    def initialize
+    def initialize(agg=false)
       @primary_key   = StarEtl.options[:primary_key]
       @conditions    = []
       @column_map    = {}
       @ready_to_stop = false
-      @aggregate     = false
+      @aggregate     = agg
+      @group_by      = []
     end
     
     def time_window=(seconds)
       raise "You have not set the time dimension column yet!" unless @time_dimension
-      @column_map.merge! :fk_time_dimension => "(#{@time_dimension} / #{seconds}) * #{seconds}"
+      
+      s = "(#{@time_dimension} / #{seconds}) * #{seconds}"
+      @column_map.merge! :fk_time_dimension => s
     end
     
     def column_map=(hash)
@@ -24,11 +27,16 @@ module StarEtl
       print_summary
       @cols, @vals = *@column_map.stringify_keys.to_a.transpose
       
+      group = @group_by.dclone 
+      group.unshift(@column_map[:fk_time_dimension]) if @aggregate
+      
+      
       insert_sql = %Q{
         INSERT INTO #{@destination} (#{@cols.join(',')})
         SELECT #{@vals.join(',')}
-        FROM #{@source}
-        WHERE (#{@conditions.join(") AND (")})
+        FROM #{@source} source
+        #{"WHERE (#{@conditions.join(") AND (")})" unless @conditions.empty?}
+        #{"GROUP BY #{group.join(',')}" unless group.empty?}
       }
       
       debug insert_sql
