@@ -7,7 +7,6 @@ module StarEtl
       @primary_key   = StarEtl.options[:primary_key]
       @conditions    = []
       @column_map    = {}
-      @ready_to_stop = false
       @aggregate     = agg
       @group_by      = []
     end
@@ -27,7 +26,7 @@ module StarEtl
       print_summary
       @cols, @vals = *@column_map.stringify_keys.to_a.transpose
       
-      group = @group_by.dclone 
+      group = @group_by.clone
       group.unshift(@column_map[:fk_time_dimension]) if @aggregate
       
       
