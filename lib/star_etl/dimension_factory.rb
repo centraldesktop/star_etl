@@ -1,6 +1,10 @@
 module StarEtl
   class DimensionFactory < Base
     
+    def self.id_ranges
+      @id_ranges ||= {}
+    end
+    
     attr_accessor :source, :sources, :dimensions
     
     def initialize
@@ -57,9 +61,16 @@ module StarEtl
     private
     
     def get_last_id(source)
-      info = sql(%Q{SELECT * from etl_info WHERE table_name = '#{"#{source.gsub("\"",'')}_dimension"}' })
+      source_key = "#{"#{source.gsub("\"",'')}_dimension"}"
+      if self.class.id_ranges.has_key?(source_key)
+        @last_id, @_to_id_ = *self.class.id_ranges[source_key]
+        return
+      end
+      
+      
+      info = sql(%Q{SELECT * from etl_info WHERE table_name = '#{source_key}' })
       @last_id = if info.empty?
-        sql(%Q{INSERT INTO etl_info (last_id, table_name) VALUES (0, '#{"#{source.gsub("\"",'')}_dimension"}') })
+        sql(%Q{INSERT INTO etl_info (last_id, table_name) VALUES (0, '#{source_key}') })
         0
       else
         info.first["last_id"]
@@ -67,7 +78,7 @@ module StarEtl
       @_to_id_ = sql(%Q{SELECT max(#{@primary_key}) as "max" FROM #{source}}).first["max"]
       
       if @last_id && @_to_id_
-        sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{"#{source.gsub("\"",'')}_dimension"}'})
+        sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{source_key}'})
       end
     end
     
