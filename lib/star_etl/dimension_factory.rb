@@ -15,7 +15,7 @@ module StarEtl
     def run!
       [@source,@sources].flatten.compact.each do |source|
         
-        get_id_range("#{source.gsub("\"",'')}_dimension")
+        get_id_range(source)
         
         @dimensions.each_pair do |name, config|
           puts "Synchronizing #{name} from #{source}"
@@ -57,9 +57,9 @@ module StarEtl
     private
     
     def get_last_id(source)
-      info = sql(%Q{SELECT * from etl_info WHERE table_name = '#{source}' })
+      info = sql(%Q{SELECT * from etl_info WHERE table_name = '#{"#{source.gsub("\"",'')}_dimension"}' })
       @last_id = if info.empty?
-        sql(%Q{INSERT INTO etl_info (last_id, table_name) VALUES (0, '#{source}') })
+        sql(%Q{INSERT INTO etl_info (last_id, table_name) VALUES (0, '#{"#{source.gsub("\"",'')}_dimension"}') })
         0
       else
         info.first["last_id"]
@@ -67,7 +67,7 @@ module StarEtl
       @_to_id_ = sql(%Q{SELECT max(#{@primary_key}) as "max" FROM #{source}}).first["max"]
       
       if @last_id && @_to_id_
-        sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{source}'})
+        sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{"#{source.gsub("\"",'')}_dimension"}'})
       end
     end
     
