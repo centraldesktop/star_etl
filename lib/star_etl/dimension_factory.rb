@@ -5,11 +5,12 @@ module StarEtl
       @id_ranges ||= {}
     end
     
-    attr_accessor :source, :sources, :dimensions
+    attr_accessor :sources, :dimensions
     
     def initialize
       @primary_key = StarEtl.options[:primary_key]
       @dimensions  = {}
+      @sources  = {}
     end
     
     def []=(k,v)
@@ -17,9 +18,11 @@ module StarEtl
     end
     
     def run!
-      [@source,@sources].flatten.compact.each do |source|
+      
+      @sources.each_pair do |source, sequence|
         
-        get_id_range(source)
+        source_info_key = "#{"#{source.gsub("\"",'')}_dimension"}"
+        get_id_range(sequence, source_info_key)
         
         @dimensions.each_pair do |name, config|
           puts "Synchronizing #{name} from #{source}"
@@ -51,37 +54,17 @@ module StarEtl
       end
 
     end
-    
-    def get_id_range(source)
-      get_last_id(source)
-      @nothing_new = true if @last_id.to_i == @_to_id_.to_i
-      @id_range = lambda {"source.#{@primary_key} BETWEEN #{@last_id} AND #{@_to_id_}"}
-    end
-    
-    private
-    
-    def get_last_id(source)
-      source_key = "#{"#{source.gsub("\"",'')}_dimension"}"
-      if self.class.id_ranges.has_key?(source_key)
-        @last_id, @_to_id_ = *self.class.id_ranges[source_key]
-        return
-      end
-      
-      
-      info = sql(%Q{SELECT * from etl_info WHERE table_name = '#{source_key}' })
-      @last_id = if info.empty?
-        sql(%Q{INSERT INTO etl_info (last_id, table_name) VALUES (0, '#{source_key}') })
-        0
+
+    def get_id_range(sequence, source)
+      if self.class.id_ranges.has_key?(source)
+        @last_id, @_to_id_ = *self.class.id_ranges[source]
+        @nothing_new = true if @last_id.to_i == @_to_id_.to_i
+        @id_range = lambda {"source.#{@primary_key} BETWEEN #{@last_id} AND #{@_to_id_}"}
       else
-        info.first["last_id"]
-      end
-      @_to_id_ = sql(%Q{SELECT max(#{@primary_key}) as "max" FROM #{source}}).first["max"]
-      
-      if @last_id && @_to_id_
-        sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{source_key}'})
+        super
+        self.class.id_ranges[source] = [@last_id, @_to_id_]
       end
     end
-    
-    
+        
   end
 end
