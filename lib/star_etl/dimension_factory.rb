@@ -10,7 +10,7 @@ module StarEtl
     def initialize
       @primary_key = StarEtl.options[:primary_key]
       @dimensions  = {}
-      @sources  = {}
+      @sources  = []
     end
     
     def []=(k,v)

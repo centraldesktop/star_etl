@@ -2,7 +2,7 @@ module StarEtl
   class Fact < Base
     
     attr_accessor :source, :destination, :time_dimension, :time_window, :column_map
-    attr_accessor :conditions, :group_by, :aggregate, :primary_key, :sequence
+    attr_accessor :conditions, :group_by, :aggregate, :primary_key
     
     def initialize(agg=false)
       @primary_key   = StarEtl.options[:primary_key]
