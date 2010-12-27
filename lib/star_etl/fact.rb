@@ -52,7 +52,7 @@ module StarEtl
     
     def print_summary
       
-      get_id_range(sequence, source)
+      get_id_range(source)
       
       if @nothing_new
         puts "No new records in #{source}"

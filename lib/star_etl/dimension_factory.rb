@@ -19,10 +19,10 @@ module StarEtl
     
     def run!
       
-      @sources.each_pair do |source, sequence|
+      @sources.each do |source|
         
         source_info_key = "#{"#{source.gsub("\"",'')}_dimension"}"
-        get_id_range(sequence, source_info_key)
+        get_id_range(source, source_info_key)
         
         @dimensions.each_pair do |name, config|
           puts "Synchronizing #{name} from #{source}"
@@ -55,7 +55,7 @@ module StarEtl
 
     end
 
-    def get_id_range(sequence, source)
+    def get_id_range(source, source_key)
       if self.class.id_ranges.has_key?(source)
         @last_id, @_to_id_ = *self.class.id_ranges[source]
         @nothing_new = true if @last_id.to_i == @_to_id_.to_i

@@ -46,26 +46,26 @@ module StarEtl
       puts msg if StarEtl.options[:debug]
     end
 
-    def get_id_range(sequence, source)
-      get_last_id(sequence, source)
+    def get_id_range(source, source_key = nil)
+      get_last_id(source, source_key || source)
       @nothing_new = true if @last_id.to_i == @_to_id_.to_i
       @id_range = lambda {"source.#{@primary_key} BETWEEN #{@last_id} AND #{@_to_id_}"}
     end
     
-    def get_last_id(sequence, source)
-      info = sql(%Q{SELECT * from etl_info WHERE table_name = '#{source}' })
+    def get_last_id(source, source_key)
+      info = sql(%Q{SELECT * from etl_info WHERE table_name = '#{source_key}' })
       @last_id = if info.empty?
-        sql(%Q{INSERT INTO etl_info (last_id, table_name) VALUES (0, '#{source}') })
+        sql(%Q{INSERT INTO etl_info (last_id, table_name) VALUES (0, '#{source_key}') })
         0
       else
         info.first["last_id"]
       end
-      ss = %Q{SELECT nextval('#{sequence}')}
+      ss = %Q{SELECT #{@primary_key} as max from #{source} order by #{@primary_key} desc limit 1}
       debug(ss)
-      @_to_id_ = sql(ss).first["nextval"]
+      @_to_id_ = sql(ss).first["max"]
       debug("to_id = #{@_to_id_}")
       if @last_id && @_to_id_
-        sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{source}'})
+        sql(%Q{UPDATE etl_info SET last_id = #{@_to_id_} WHERE table_name = '#{source_key}'})
       end
     end
     
