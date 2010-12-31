@@ -49,7 +49,7 @@ module StarEtl
     def get_id_range(source, source_key = nil)
       get_last_id(source, source_key || source)
       @nothing_new = true if @last_id.to_i == @_to_id_.to_i
-      @id_range = lambda {"source.#{@primary_key} BETWEEN #{@last_id} AND #{@_to_id_}"}
+      @id_range = lambda {"source.#{@primary_key} > #{@last_id} AND source.#{@primary_key} <= #{@_to_id_}"}
     end
     
     def get_last_id(source, source_key)

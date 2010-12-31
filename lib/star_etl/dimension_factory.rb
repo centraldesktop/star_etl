@@ -24,6 +24,7 @@ module StarEtl
         source_info_key = "#{"#{source.gsub("\"",'')}_dimension"}"
         get_id_range(source, source_info_key)
         
+        
         @dimensions.each_pair do |name, config|
           puts "Synchronizing #{name} from #{source}"
           
