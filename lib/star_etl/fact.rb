@@ -42,10 +42,21 @@ module StarEtl
       
       debug insert_sql
       sql(insert_sql)
+      
+      
+      debug "Removing old source data"
+      debug @cleanup_sql
+      sql(@cleanup_sql)
     end
     
     def sequence
       @sequence || %Q{#{self.source}_#{self.primary_key}_seq}
+    end
+    
+    def cleanup(time)
+      @cleanup_sql = %Q{
+        DELETE FROM #{@source} where #{self.time_dimension} < #{time.to_i}
+      }
     end
     
     private
