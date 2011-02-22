@@ -10,6 +10,7 @@ module StarEtl
       @column_map    = {}
       @aggregate     = agg
       @group_by      = []
+      @cleanup       = []
     end
     
     def time_window=(seconds)
@@ -44,19 +45,20 @@ module StarEtl
       sql(insert_sql)
       
       
-      debug "Removing old source data"
-      debug @cleanup_sql
-      sql(@cleanup_sql)
+      unless @cleanup.empty?
+        debug "Removing old source data"
+        @cleanup.each {|c| debug c; sql(c) }
+      end
     end
     
     def sequence
       @sequence || %Q{#{self.source}_#{self.primary_key}_seq}
     end
     
-    def cleanup(time)
-      @cleanup_sql = %Q{
-        DELETE FROM #{@source} where #{self.time_dimension} < #{time.to_i}
-      }
+    def cleanup(time, tbl=nil)
+      tbl ||= @source
+      sql = %Q{DELETE from #{tbl} WHERE #{self.time_dimension} < #{time.to_i}}
+      @cleanup << sql
     end
     
     private
