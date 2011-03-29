@@ -47,7 +47,7 @@ module StarEtl
           
         
           create_stored_proc = %Q{            
-            CREATE OR REPLACE FUNCTION "sync_#{name}"() RETURNS VOID AS
+            CREATE OR REPLACE FUNCTION "sync_#{name.split(".").last}"() RETURNS VOID AS
               
               $BODY$
                 DECLARE 
