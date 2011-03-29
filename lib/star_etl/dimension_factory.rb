@@ -45,9 +45,10 @@ module StarEtl
           # WHERE (#{conditions.compact.join(") AND (")})
           # #{"GROUP BY #{group}" if group}
           
+          proc_name = "sync_#{name.split(".").last}"
         
           create_stored_proc = %Q{            
-            CREATE OR REPLACE FUNCTION "sync_#{name.split(".").last}"() RETURNS VOID AS
+            CREATE OR REPLACE FUNCTION "#{proc_name}"() RETURNS VOID AS
               
               $BODY$
                 DECLARE 
@@ -72,8 +73,8 @@ module StarEtl
           debug create_stored_proc
           sql(create_stored_proc)
           
-          sql("SELECT sync_#{name}();")
-          sql("DROP FUNCTION sync_#{name}();")
+          sql("SELECT #{proc_name}();")
+          sql("DROP FUNCTION #{proc_name}();")
         end
       end
 
