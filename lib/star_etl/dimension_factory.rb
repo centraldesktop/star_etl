@@ -30,27 +30,50 @@ module StarEtl
           
           opts = config.clone
           
-          conditions = ["dimension IS NULL"]
+          conditions = []
           conditions << @id_range.call
           conditions << opts.delete(:conditions)
           join = opts.delete(:join)
           group = opts.delete(:group)
           
           cols, vals = *opts.stringify_keys.to_a.transpose
+
+          # INSERT INTO #{name} (#{cols.join(',')})
+          # SELECT #{vals.join(',')}
+          # FROM #{source} source
+          # LEFT OUTER JOIN #{name} dimension ON (#{join})
+          # WHERE (#{conditions.compact.join(") AND (")})
+          # #{"GROUP BY #{group}" if group}
+          
         
-          insert_sql = %Q{
-            INSERT INTO #{name} (#{cols.join(',')})
-            SELECT #{vals.join(',')}
-            FROM #{source} source
-            LEFT OUTER JOIN #{name} dimension ON (#{join})
-            WHERE (#{conditions.compact.join(") AND (")})
-            #{"GROUP BY #{group}" if group}
+          create_stored_proc = %Q{            
+            CREATE OR REPLACE FUNCTION "sync_#{name}"() RETURNS VOID AS
+              
+              $BODY$
+                DECLARE 
+                  insert_cursor NO SCROLL CURSOR FOR SELECT #{vals.join(',')} FROM #{source} source WHERE (#{conditions.compact.join(") AND (")}) #{"GROUP BY #{group}" if group};
+                  
+                BEGIN
+                  FOR record IN insert_cursor LOOP
+                    BEGIN
+                      INSERT INTO #{name} (#{cols.join(',')})
+
+                    EXCEPTION WHEN unique_violation THEN
+                      
+                    END;
+
+                END LOOP;
+            END;
+            $BODY$
+                LANGUAGE 'plpgsql' VOLATILE
+                COST 1;            
           }
           
-          debug insert_sql
+          debug create_stored_proc
+          sql(create_stored_proc)
           
-          sql(insert_sql)
-        
+          sql("SELECT sync_#{name}();")
+          sql("DROP FUNCTION sync_#{name}();")
         end
       end
 
