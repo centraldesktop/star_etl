@@ -27,7 +27,7 @@ module StarEtl
     # 11/12/10:: added documentation Jon Druse (mailto:jdruse@centraldesktop.com)
     ### 
     def sql(q)
-      # StarEtl.connection.execute(q)
+      StarEtl.connection.execute(q)
     end
     
     ## 
