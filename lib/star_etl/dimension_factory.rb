@@ -51,12 +51,12 @@ module StarEtl
               
               $BODY$
                 DECLARE 
-                  insert_cursor NO SCROLL CURSOR FOR SELECT #{vals.join(',')} FROM #{source} source WHERE (#{conditions.compact.join(") AND (")}) #{"GROUP BY #{group}" if group};
+                  insert_cursor NO SCROLL CURSOR FOR SELECT #{opts.collect {|k, v| "#{v} as #{k}" }.join(',')} FROM #{source} source WHERE (#{conditions.compact.join(") AND (")}) #{"GROUP BY #{group}" if group};
                   
                 BEGIN
                   FOR record IN insert_cursor LOOP
                     BEGIN
-                      INSERT INTO #{name} (#{cols.join(',')});
+                      INSERT INTO #{name} (#{cols.join(',')}) VALUES (#{cols.collect {|c| "record.#{c}" }.join(',')});
                       RETURN;
                     EXCEPTION WHEN unique_violation THEN
                       
