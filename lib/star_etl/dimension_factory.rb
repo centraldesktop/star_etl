@@ -56,8 +56,8 @@ module StarEtl
                 BEGIN
                   FOR record IN insert_cursor LOOP
                     BEGIN
-                      INSERT INTO #{name} (#{cols.join(',')})
-
+                      INSERT INTO #{name} (#{cols.join(',')});
+                      RETURN;
                     EXCEPTION WHEN unique_violation THEN
                       
                     END;
