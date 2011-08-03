@@ -58,12 +58,12 @@ module StarEtl
                   FOR record IN insert_cursor LOOP
                     BEGIN
                       INSERT INTO #{name} (#{cols.join(',')}) VALUES (#{cols.collect {|c| "record.#{c}" }.join(',')});
-                      RETURN;
                     EXCEPTION WHEN unique_violation THEN
                       
                     END;
 
                 END LOOP;
+                RETURN;
             END;
             $BODY$
                 LANGUAGE 'plpgsql' VOLATILE
